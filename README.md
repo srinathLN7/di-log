@@ -1,7 +1,7 @@
 # di-log
 A distributed commit log service written in golang
 
-This project demonstrates the implementation of distributed logs using the Go programming language. It is based on the concepts and techniques discussed in the book "Distributed Services with Go" by Travis Jeffery.
+This project demonstrates the implementation of distributed logs using the Go programming language. It is based on the concepts and techniques discussed in the book ["Distributed Services with Go"](https://pragprog.com/titles/tjgo/distributed-services-with-go/) by Travis Jeffery.
 
 ## Project Overview
 
@@ -21,7 +21,7 @@ It employs various distributed systems concepts and techniques to achieve these 
 ### Prerequisites
 
 - Go programming language (version 1.3 or higher)
-- 
+- A suitable IDE (VS code recommended) 
 
 ### Installation
 
@@ -59,7 +59,7 @@ This project is based on the concepts and ideas presented in the book "Distribut
 
 ## References
 
-- Book: "Distributed Services with Go" by Travis Jeffery
+- Book: ["Distributed Services with Go" by Travis Jeffery](https://pragprog.com/titles/tjgo/distributed-services-with-go/)
 - Go documentation: https://golang.org/doc/
 
 ## Contact
