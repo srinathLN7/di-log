@@ -66,7 +66,6 @@ This project is based on the concepts and ideas presented in the book "Distribut
 
 For questions or further information about this project, please contact:
 
-Your Name  
 Email: srinath0393@gmail.com  
 LinkedIn: [L. Nandakumar](https://www.linkedin.com/in/lnandakumar/)
 
