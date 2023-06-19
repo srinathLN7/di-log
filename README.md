@@ -1,16 +1,13 @@
 # di-log
-A distributed commit log service written in golang
-
-This project demonstrates the implementation of distributed logs using the Go programming language. It is based on the concepts and techniques discussed in the book ["Distributed Services with Go"](https://pragprog.com/titles/tjgo/distributed-services-with-go/) by Travis Jeffery.
+A distributed commit log service written in golang. It is based on the concepts and techniques discussed in the book ["Distributed Services with Go"](https://pragprog.com/titles/tjgo/distributed-services-with-go/) by Travis Jeffery.
 
 ## Project Overview
 
-The goal of this project is to build a distributed logging system that can handle high volumes of log data across multiple nodes. The system ensures fault tolerance, scalability, and efficient log processing. 
-It employs various distributed systems concepts and techniques to achieve these goals.
+The goal of this project is to build a distributed logging system that can handle high volumes of log data across multiple nodes. The system ensures fault tolerance, scalability, and efficient log processing. It employs various distributed systems concepts and techniques to achieve these goals.
 
 ## Features
 
-- **Distributed Architecture**: The logging system is designed to operate in a distributed manner, with multiple nodes handling log data and coordinating with each other.
+- **Distributed Architecture**: The logging system is designed to operate in a distributed manner, with multiple nodes handling log data and co-ordinating with each other.
 - **Fault Tolerance**: The system incorporates fault tolerance mechanisms to ensure the availability and resilience of log data in the face of failures.
 - **Scalability**: It is built to scale horizontally, allowing for the addition of more nodes to handle increased log data volume and traffic.
 - **Log Processing**: The system provides efficient log processing capabilities, allowing for real-time analysis, filtering, and aggregation of log data.
