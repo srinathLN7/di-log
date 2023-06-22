@@ -10,8 +10,6 @@ import (
 /*
 Record	 - data stored in the log
 Store  	 - the file we store records
-Index  	 - the file we storre index entries in
-Segment  - the abstraction that ties store and index
 Log		 - the abstraction that ties all segments together
 */
 
@@ -49,8 +47,8 @@ func newStore(f *os.File) (*store, error) {
 
 }
 
-// Append : persits the given bytes to the store
-// uses the binary.Write function to encode the length as a 64-bit unsigned integer (uint64) using big-endian byte order
+// Append : persits the given bytes to the store uses the binary.Write function to encode the length as a 64-bit unsigned integer (uint64)
+// using big-endian byte order
 func (s *store) Append(p []byte) (n, pos uint64, err error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()

@@ -13,6 +13,7 @@ var (
 	entWidth        = offWidth + posWidth
 )
 
+// Index - the file we store index entries in
 // Index consists of a persisted file, memory mapped file and a size associated with it
 type index struct {
 	file *os.File
