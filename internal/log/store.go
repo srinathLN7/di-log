@@ -10,7 +10,6 @@ import (
 /*
 Record	 - data stored in the log
 Store  	 - the file we store records
-Log		 - the abstraction that ties all segments together
 */
 
 // define the encoding that we persist record sizes and index entries in
