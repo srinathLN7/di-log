@@ -2,6 +2,7 @@ package log
 
 import (
 	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
 	"path"
@@ -255,4 +256,26 @@ func (l *Log) Truncate(lowest uint64) error {
 	// update the log segments after truncating the old ones
 	l.segments = segments
 	return nil
+}
+
+// Reader: returns an io.Reader to read the whole log
+func (l *Log) Reader() io.Reader {
+	l.mu.RLock()
+	defer l.mu.RUnlock()
+	readers := make([]io.Reader, len(l.segments))
+	for i, segment := range l.segments {
+		readers[i] = &originReader{segment.store, 0}
+	}
+	return io.MultiReader(readers...)
+}
+
+type originReader struct {
+	*store
+	off int64
+}
+
+func (o *originReader) Read(p []byte) (int, error) {
+	n, err := o.ReadAt(p, o.off)
+	o.off += int64(n)
+	return n, err
 }
