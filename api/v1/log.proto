@@ -4,11 +4,14 @@ package log.v1;
 
 option go_package = "github.com/srinathLN7/api/log_v1";
 
+// Streaming in gRPC allows for bidirectional communication between the client and server, where multiple messages can be sent 
+// and received continuously over a single established connection. 
+// It enables efficient handling of large datasets or continuous data streams.
 service Log {
     rpc Produce(ProduceRequest) returns (ProduceResponse) {}
     rpc Consume(ConsumeRequest) returns (ConsumeResponse) {}
     rpc ConsumeStream(ConsumeRequest) returns (stream ConsumeResponse) {}
-    rpc ProduceStream(ProduceRequest) returns (stream ProduceResponse) {}
+    rpc ProduceStream(stream ProduceRequest) returns (stream ProduceResponse) {}
 }
 
 message Record {

@@ -48,3 +48,66 @@ func (s *grpcServer) Consume(ctx context.Context, req *api.ConsumeRequest) (*api
 
 	return &api.ConsumeResponse{Record: record}, nil
 }
+
+// ProduceStream: implements a bidirectional streaming RPC method `ProduceStream` defined in the `Log` service.
+// It allows the client to stream data into the server's log and receive a response indicating whether each request succeeded or failed.
+func (s *grpcServer) ProduceStream(stream api.Log_ProduceStreamServer) error {
+	for {
+
+		/*
+			Implementation: The function starts an infinite loop to continuously receive messages from the client using the `stream.Recv()` method.
+			Each received message is then passed to the `s.Produce()` method (defined above) to process the request and generate a response.
+			The response is sent back to the client using the `stream.Send()` method.
+			The loop continues until an error occurs during receiving or sending, in which case the function returns the error.
+		*/
+		req, err := stream.Recv()
+		if err != nil {
+			return err
+		}
+
+		// use the above-defined s.Produce() method to get the response
+		res, err := s.Produce(stream.Context(), req)
+		if err != nil {
+			return err
+		}
+
+		if err = stream.Send(res); err != nil {
+			return err
+		}
+	}
+}
+
+// ConsumeStream: implements a server-side streaming RPC method `ConsumeStream` defined in the `Log` service.
+// allows the client to specify the offset of records to read from the server's log, and the server streams every record that follows.
+func (s *grpcServer) ConsumeStream(req *api.ConsumeRequest, stream api.Log_ConsumeStreamServer) error {
+	for {
+
+		/*
+			The function starts an infinite loop to continuously handle requests from the client. It uses a `select` statement to either process the request or
+			check if the streaming context is done (indicating the client has terminated the stream). Inside the loop, the `s.Consume()` method (defined above)
+			is called to process the request and generate a response. If the request is successful, the response is sent back to the client using the `stream.Send()`
+			method. The loop continues until the streaming context is done or an error occurs during sending, in which case the function returns.
+		*/
+
+		// select statements are not sequential
+		select {
+		case <-stream.Context().Done():
+			return nil
+		default:
+			res, err := s.Consume(stream.Context(), req)
+
+			// type switch the error
+			switch err.(type) {
+			case nil:
+			case api.ErrOffsetOutOfRange:
+				continue
+			default:
+				return err
+			}
+			if err = stream.Send(res); err != nil {
+				return err
+			}
+			req.Offset++
+		}
+	}
+}
