@@ -4,6 +4,7 @@ import (
 	"context"
 
 	api "github.com/srinathLN7/proglog/api/v1"
+	"google.golang.org/grpc"
 )
 
 type CommitLog interface {
@@ -27,6 +28,17 @@ func newgrpcServer(config *Config) (srv *grpcServer, err error) {
 		Config: config,
 	}
 	return srv, nil
+}
+
+// NewGRPCServer: creates a grpc server and registers the service to that server
+func NewGRPCServer(config *Config) (*grpc.Server, error) {
+	gsrv := grpc.NewServer()
+	srv, err := newgrpcServer(config)
+	if err != nil {
+		return nil, err
+	}
+	api.RegisterLogServer(gsrv, srv)
+	return gsrv, nil
 }
 
 // Produce: takes in a `record` and produce the corresponding offset

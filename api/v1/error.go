@@ -11,6 +11,8 @@ type ErrOffsetOutOfRange struct {
 	Offset uint64
 }
 
+// GRPCStatus : with receiver of type `ErrOffsetOutofRange`
+// sets the req'd msg using the `status` and `errdetails` pkg
 func (e ErrOffsetOutOfRange) GRPCStatus() *status.Status {
 	st := status.New(
 		404,
