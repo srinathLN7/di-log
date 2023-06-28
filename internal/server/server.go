@@ -69,8 +69,8 @@ func (s *grpcServer) ProduceStream(stream api.Log_ProduceStreamServer) error {
 		/*
 			Implementation: The function starts an infinite loop to continuously receive messages from the client using the `stream.Recv()` method.
 			Each received message is then passed to the `s.Produce()` method (defined above) to process the request and generate a response.
-			The response is sent back to the client using the `stream.Send()` method.
-			The loop continues until an error occurs during receiving or sending, in which case the function returns the error.
+			The response is sent back to the client using the `stream.Send()` method and the loop continues until an error occurs during receiving or
+			sending, in which case the function returns the error.
 		*/
 		req, err := stream.Recv()
 		if err != nil {
@@ -95,10 +95,13 @@ func (s *grpcServer) ConsumeStream(req *api.ConsumeRequest, stream api.Log_Consu
 	for {
 
 		/*
-			The function starts an infinite loop to continuously handle requests from the client. It uses a `select` statement to either process the request or
-			check if the streaming context is done (indicating the client has terminated the stream). Inside the loop, the `s.Consume()` method (defined above)
-			is called to process the request and generate a response. If the request is successful, the response is sent back to the client using the `stream.Send()`
-			method. The loop continues until the streaming context is done or an error occurs during sending, in which case the function returns.
+			The function uses a `select` statement to either process the request or check if the streaming context is done (indicating the client has terminated the stream).
+			Inside the loop, the `s.Consume()` method (defined above) is called to process the request and generate a response. If the request is successful, the response
+			is sent back to the client using the `stream.Send()` method. The loop continues until the streaming context is done or an error occurs during sending,
+			in which case the function returns.
+
+			NOTE: no stream.Recv() is used here since the client does not continously send msg's. It only send one offset and the server starts streaming
+			all logs from that offset
 		*/
 
 		// select statements are not sequential
