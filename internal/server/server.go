@@ -31,8 +31,11 @@ func newgrpcServer(config *Config) (srv *grpcServer, err error) {
 }
 
 // NewGRPCServer: creates a grpc server and registers the service to that server
-func NewGRPCServer(config *Config) (*grpc.Server, error) {
-	gsrv := grpc.NewServer()
+func NewGRPCServer(config *Config, opts ...grpc.ServerOption) (*grpc.Server, error) {
+
+	// remember variadic functions which uses slice internally to handle variable number of arguments
+	// pack (... in prefix) and unpack operator (... in suffix)
+	gsrv := grpc.NewServer(opts...)
 	srv, err := newgrpcServer(config)
 	if err != nil {
 		return nil, err
