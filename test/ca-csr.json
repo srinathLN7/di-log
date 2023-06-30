@@ -1,0 +1,17 @@
+{
+    "CN": "srinath CA",
+    "key": {
+        "algo": "rsa",
+        "size": 2048
+    },
+    "names": [
+        {
+            "C": "CA",
+            "L": "The Hague",
+            "ST": "South Holland",
+            "O": "SriSri",
+            "OU": "CA Services"
+        }
+    ]
+
+}
