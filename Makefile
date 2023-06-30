@@ -34,7 +34,7 @@ gencert:
 test:
 # END: begin
 # START: auth
-# test: $(CONFIG_PATH)/policy.csv $(CONFIG_PATH)/model.conf
+#test: $(CONFIG_PATH)/policy.csv $(CONFIG_PATH)/model.conf
 #: START: begin
 	go test -race ./...
 # END: auth
