@@ -48,10 +48,18 @@ func setupTest(t *testing.T, fn func(*Config)) (
 	l, err := net.Listen("tcp", "127.0.0.1:0")
 	require.NoError(t, err)
 
-	// client-side config
-	// config our CA as the client's Root CA
+	// client-side - config our CA as the client's Root CA
+
+	//	Without mutual TLS
+	// clientTLSConfig, err := config.SetupTLSConfig(config.TLSConfig{
+	// 	CAFile: config.CAFile,
+	// })
+
+	// with mutual-TLS for client authentication
 	clientTLSConfig, err := config.SetupTLSConfig(config.TLSConfig{
-		CAFile: config.CAFile,
+		CertFile: config.ClientCertFile,
+		KeyFile:  config.ClientKeyFile, // add client key file
+		CAFile:   config.CAFile,        //add client cert file
 	})
 
 	require.NoError(t, err)
@@ -63,6 +71,7 @@ func setupTest(t *testing.T, fn func(*Config)) (
 	)
 
 	require.NoError(t, err)
+
 	client = api.NewLogClient(cc)
 
 	// server side config
@@ -71,6 +80,7 @@ func setupTest(t *testing.T, fn func(*Config)) (
 		KeyFile:       config.ServerKeyFile,
 		CAFile:        config.CAFile,
 		ServerAddress: l.Addr().String(),
+		Server:        true,
 	})
 
 	require.NoError(t, err)
@@ -99,8 +109,6 @@ func setupTest(t *testing.T, fn func(*Config)) (
 	go func() {
 		server.Serve(l)
 	}()
-
-	client = api.NewLogClient(cc)
 
 	// teardown => stop server gracefully, close the client connection and listener, and remove the client log
 	return client, cfg, func() {

@@ -57,6 +57,8 @@ func SetupTLSConfig(cfg TLSConfig) (*tls.Config, error) {
 			tlsConfig.ClientCAs = ca
 
 			// enforce client cert verification
+			// RequireAndVerifyClientCert indicates that a client certificate should be requested during the handshake,
+			// and that at least one valid certificate is required to be sent by the client.
 			tlsConfig.ClientAuth = tls.RequireAndVerifyClientCert
 		} else {
 
