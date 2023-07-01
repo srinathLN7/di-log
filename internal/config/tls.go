@@ -54,6 +54,7 @@ func SetupTLSConfig(cfg TLSConfig) (*tls.Config, error) {
 
 			// clientCAs defines the set of root certificate authorities that servers use if required to
 			// verify a client certificate by the policy in ClientAuth
+
 			tlsConfig.ClientCAs = ca
 
 			// enforce client cert verification

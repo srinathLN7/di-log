@@ -57,9 +57,9 @@ func setupTest(t *testing.T, fn func(*Config)) (
 
 	// with mutual-TLS for client authentication
 	clientTLSConfig, err := config.SetupTLSConfig(config.TLSConfig{
-		CertFile: config.ClientCertFile,
-		KeyFile:  config.ClientKeyFile, // add client key file
-		CAFile:   config.CAFile,        //add client cert file
+		CertFile: config.ClientCertFile, // add client cert file
+		KeyFile:  config.ClientKeyFile,  // add client key file
+		CAFile:   config.CAFile,
 	})
 
 	require.NoError(t, err)

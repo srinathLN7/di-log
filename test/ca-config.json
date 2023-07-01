@@ -14,7 +14,7 @@
                 "usages": [
                     "signing",
                     "key encipherment",
-                    "server auth"
+                    "client auth"
                 ]
             }
         }
