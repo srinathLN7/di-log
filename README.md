@@ -1,5 +1,5 @@
 # di-log
-A distributed commit log service written in golang. The goal of this project is to build a distributed logging system that can handle high volumes of log data across multiple nodes. The system ensures fault tolerance, scalability, and efficient log processing. It employs various distributed systems concepts and techniques to achieve these goals.
+A distributed commit log service built from scratch in golang. The goal of this project is to build a distributed logging system that can handle high volumes of log data across multiple nodes. The system ensures fault tolerance, scalability, and efficient log processing. It employs various distributed systems concepts and techniques to achieve these goals. Refer [here](https://github.com/srinathLN7/di-log/blob/main/internal/log/README.md) for the log design.
 
 ## Features
 
@@ -13,7 +13,7 @@ A distributed commit log service written in golang. The goal of this project is 
 
 ### Prerequisites
 
-- Go programming language (version 1.3 or higher)
+- Go programming language (version 1.13 or higher)
 - A suitable IDE (VS code recommended) 
 
 ### Installation
@@ -42,18 +42,16 @@ A distributed commit log service written in golang. The goal of this project is 
 
 Contributions to this project are welcome! If you find any issues or have suggestions for improvements, please feel free to open an issue or submit a pull request.
 
-## License
-
-This project is licensed under the [MIT License](LICENSE).
-
-## Acknowledgments
-
-This project is based on the concepts and ideas presented in the book "Distributed Services with Go" by Travis Jeffery. The book provides valuable insights and guidance for building distributed systems with Go.
 
 ## References
 
 - Book: ["Distributed Services with Go" by Travis Jeffery](https://pragprog.com/titles/tjgo/distributed-services-with-go/)
 - Go documentation: https://golang.org/doc/
+
+## License
+
+This project is licensed under the [MIT License](LICENSE).
+
 
 ## Contact
 
