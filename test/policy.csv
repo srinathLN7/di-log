@@ -1,0 +1,9 @@
+# This policy file can be used by an access control system or authorization library, such as Casbin, 
+# to enforce these access control rules and make decisions on whether a particular subject is allowed to perform 
+# a specific action on a given object based on the defined policies.
+
+# The format of the policy file is p, <subject>, <object>, <action>, where p indicates a policy entry, 
+# and the subsequent fields specify the subject, object, and action components of the policy rule.
+
+p, root, *, produce
+p, root, *, consume 

@@ -20,7 +20,8 @@ func TestServer(t *testing.T) {
 	// create a table of tests
 	for scenario, fn := range map[string]func(
 		t *testing.T,
-		client api.LogClient,
+		rootClient api.LogClient,
+		nobodyClient api.LogClient,
 		config *Config,
 	){
 		"produce/consume a message to/from the log succeeds": testProduceConsume,
@@ -28,16 +29,20 @@ func TestServer(t *testing.T) {
 		"consume past log boundary fails":                    testConsumePastBoundary,
 	} {
 		t.Run(scenario, func(t *testing.T) {
-			client, config, teardown := setupTest(t, nil)
+			rootClient,
+				nobodyClient,
+				config,
+				teardown := setupTest(t, nil)
 			defer teardown()
-			fn(t, client, config)
+			fn(t, rootClient, nobodyClient, config)
 		})
 	}
 }
 
 // setupTest : sets up each test case
 func setupTest(t *testing.T, fn func(*Config)) (
-	client api.LogClient,
+	rootClient api.LogClient,
+	nobodyClient api.LogClient,
 	cfg *Config,
 	teardown func(),
 ) {
@@ -50,29 +55,61 @@ func setupTest(t *testing.T, fn func(*Config)) (
 
 	// client-side - config our CA as the client's Root CA
 
-	//	Without mutual TLS
-	// clientTLSConfig, err := config.SetupTLSConfig(config.TLSConfig{
-	// 	CAFile: config.CAFile,
-	// })
+	/*
+			Without mutual TLS
+		clientTLSConfig, err := config.SetupTLSConfig(config.TLSConfig{
+			CAFile: config.CAFile,
+		})
 
-	// with mutual-TLS for client authentication
-	clientTLSConfig, err := config.SetupTLSConfig(config.TLSConfig{
-		CertFile: config.ClientCertFile, // add client cert file
-		KeyFile:  config.ClientKeyFile,  // add client key file
-		CAFile:   config.CAFile,
-	})
+		with mutual-TLS for client and server authentication
+		clientTLSConfig, err := config.SetupTLSConfig(config.TLSConfig{
+			CertFile: config.ClientCertFile, // add client cert file
+			KeyFile:  config.ClientKeyFile,  // add client key file
+			CAFile:   config.CAFile,
+		})
 
-	require.NoError(t, err)
+		require.NoError(t, err)
+		clientCreds := credentials.NewTLS(clientTLSConfig)
+		cc, err := grpc.Dial(
+			l.Addr().String(),
+			grpc.WithTransportCredentials(clientCreds),
+		)
+		require.NoError(t, err)
+		client = api.NewLogClient(cc)
 
-	clientCreds := credentials.NewTLS(clientTLSConfig)
-	cc, err := grpc.Dial(
-		l.Addr().String(),
-		grpc.WithTransportCredentials(clientCreds),
+	*/
+
+	newClient := func(crtPath, keyPath string) (
+		*grpc.ClientConn,
+		api.LogClient,
+		[]grpc.DialOption,
+	) {
+		tlsConfig, err := config.SetupTLSConfig(config.TLSConfig{
+			CertFile: crtPath,
+			KeyFile:  keyPath,
+			CAFile:   config.CAFile,
+			Server:   false,
+		})
+		require.NoError(t, err)
+		tlsCreds := credentials.NewTLS(tlsConfig)
+		opts := []grpc.DialOption{grpc.WithTransportCredentials(tlsCreds)}
+		conn, err := grpc.Dial(l.Addr().String(), opts...)
+		require.NoError(t, err)
+		client := api.NewLogClient(conn)
+		return conn, client, opts
+	}
+
+	var rootConn *grpc.ClientConn
+	rootConn, rootClient, _ = newClient(
+		config.RootClientCertFile,
+		config.RootClientKeyFile,
 	)
 
-	require.NoError(t, err)
-
-	client = api.NewLogClient(cc)
+	var nobodyConn *grpc.ClientConn
+	nobodyConn, nobodyClient, _ = newClient(
+		config.NobodyClientCertFile,
+		config.NobodyClientKeyFile,
+	)
 
 	// server side config
 	serverTLSConfig, err := config.SetupTLSConfig(config.TLSConfig{
@@ -111,16 +148,17 @@ func setupTest(t *testing.T, fn func(*Config)) (
 	}()
 
 	// teardown => stop server gracefully, close the client connection and listener, and remove the client log
-	return client, cfg, func() {
+	return rootClient, nobodyClient, cfg, func() {
 		server.Stop()
-		cc.Close()
+		rootConn.Close()
+		nobodyConn.Close()
 		l.Close()
 		clog.Remove()
 	}
 }
 
 // testProduceConsume: tests if the producing and consuming works as expected
-func testProduceConsume(t *testing.T, client api.LogClient, config *Config) {
+func testProduceConsume(t *testing.T, client, _ api.LogClient, cfg *Config) {
 	// get a non-nil empty context with no values and deadline
 	ctx := context.Background()
 
@@ -148,7 +186,7 @@ func testProduceConsume(t *testing.T, client api.LogClient, config *Config) {
 
 // testProduceConsumeStream: test streaming of testProduceConsume()
 // produce and consume streams
-func testProduceConsumeStream(t *testing.T, client api.LogClient, config *Config) {
+func testProduceConsumeStream(t *testing.T, client, _ api.LogClient, config *Config) {
 	ctx := context.Background()
 
 	records := []*api.Record{
@@ -200,7 +238,7 @@ func testProduceConsumeStream(t *testing.T, client api.LogClient, config *Config
 
 // testConsumePastBoundary: tests if our server responds with error `ErrsetOutOfRange` if and when client tries
 // to consume beyond log boundaries
-func testConsumePastBoundary(t *testing.T, client api.LogClient, config *Config) {
+func testConsumePastBoundary(t *testing.T, client, _ api.LogClient, config *Config) {
 	ctx := context.Background()
 
 	produce, err := client.Produce(ctx, &api.ProduceRequest{
