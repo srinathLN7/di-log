@@ -284,7 +284,6 @@ func testUnauthorizedProduceConsume(
 ) {
 
 	ctx := context.Background()
-
 	produce, err := nobodyClient.Produce(
 		ctx,
 		&api.ProduceRequest{

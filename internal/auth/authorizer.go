@@ -12,7 +12,7 @@ type Authorizer struct {
 	enforcer *casbin.Enforcer
 }
 
-// New: init a new casbin enforcer with the specified model and policy
+// New: init a new casbin enforcer with the specified model and policy file
 func New(model, policy string) *Authorizer {
 	enforcer := casbin.NewEnforcer(model, policy)
 	return &Authorizer{

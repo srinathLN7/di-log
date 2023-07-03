@@ -128,7 +128,7 @@ func (s *grpcServer) Produce(ctx context.Context, req *api.ProduceRequest) (*api
 func (s *grpcServer) Consume(ctx context.Context, req *api.ConsumeRequest) (*api.ConsumeResponse, error) {
 
 	// check if the client is authorized to connect to the server
-	if err := s.Authorizer.Authorize(subject(ctx), objectWildcard, produceAction); err != nil {
+	if err := s.Authorizer.Authorize(subject(ctx), objectWildcard, consumeAction); err != nil {
 		return nil, err
 	}
 	record, err := s.CommitLog.Read(req.Offset)
