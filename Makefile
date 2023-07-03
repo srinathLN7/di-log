@@ -37,23 +37,19 @@ gencert:
 
 # END: begin
 
-# # START: auth
-# $(CONFIG_PATH)/model.conf:
-# 	cp test/model.conf $(CONFIG_PATH)/model.conf
-
-# $(CONFIG_PATH)/policy.csv:
-# 	cp test/policy.csv $(CONFIG_PATH)/policy.csv
-
-# START: begin
-.PHONY: test
-# END: auth
-test:
-# END: begin
 # START: auth
-#test: $(CONFIG_PATH)/policy.csv $(CONFIG_PATH)/model.conf
-#: START: begin
+$(CONFIG_PATH)/model.conf:
+	cp test/model.conf $(CONFIG_PATH)/model.conf
+
+$(CONFIG_PATH)/policy.csv:
+	cp test/policy.csv $(CONFIG_PATH)/policy.csv
+
+
+.PHONY: test
+test:
+test: $(CONFIG_PATH)/policy.csv $(CONFIG_PATH)/model.conf
+
 	go test -race ./...
-# END: auth
 
 .PHONY: compile
 compile:

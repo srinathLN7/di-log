@@ -7,11 +7,14 @@ import (
 	"testing"
 
 	api "github.com/srinathLN7/proglog/api/v1"
+	"github.com/srinathLN7/proglog/internal/auth"
 	"github.com/srinathLN7/proglog/internal/config"
 	"github.com/srinathLN7/proglog/internal/log"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/status"
 )
 
 // TestServer: defines a list of test cases and then runs a subtest for each case
@@ -27,6 +30,7 @@ func TestServer(t *testing.T) {
 		"produce/consume a message to/from the log succeeds": testProduceConsume,
 		"produce/consume stream succeeds":                    testProduceConsumeStream,
 		"consume past log boundary fails":                    testConsumePastBoundary,
+		"unauthorized fails":                                 testUnauthorizedProduceConsume,
 	} {
 		t.Run(scenario, func(t *testing.T) {
 			rootClient,
@@ -129,9 +133,12 @@ func setupTest(t *testing.T, fn func(*Config)) (
 	clog, err := log.NewLog(dir, log.Config{})
 	require.NoError(t, err)
 
-	// notice *log.Log implements CommitLog interface
+	// notice `clog` *log.Log implements CommitLog interface
+	// embed the casbin-based authorization policy in the configuration
+	authorizer := auth.New(config.ACLModelFile, config.ACLPolicyFile)
 	cfg = &Config{
-		CommitLog: clog,
+		CommitLog:  clog,
+		Authorizer: authorizer,
 	}
 
 	if fn != nil {
@@ -264,5 +271,48 @@ func testConsumePastBoundary(t *testing.T, client, _ api.LogClient, config *Conf
 	// require.Equal(t, gotErr, wantErr)
 	if gotErr != wantErr {
 		t.Fatalf("got err: %v, want: %v", gotErr, wantErr)
+	}
+}
+
+// testUnauthorizedProduceConsume: tests if the server throws authorization error when
+// an unauthorized client connects to the server to produce and consume a log
+func testUnauthorizedProduceConsume(
+	t *testing.T,
+	_,
+	nobodyClient api.LogClient,
+	config *Config,
+) {
+
+	ctx := context.Background()
+
+	produce, err := nobodyClient.Produce(
+		ctx,
+		&api.ProduceRequest{
+			Record: &api.Record{
+				Value: []byte("hello world"),
+			},
+		},
+	)
+
+	if produce != nil {
+		t.Fatalf("produce response should be nil")
+	}
+
+	gotCode, wantCode := status.Code(err), codes.PermissionDenied
+	if gotCode != wantCode {
+		t.Fatalf("got code: %d, want: %d", gotCode, wantCode)
+	}
+
+	consume, err := nobodyClient.Consume(ctx, &api.ConsumeRequest{
+		Offset: 0,
+	})
+
+	if consume != nil {
+		t.Fatalf("consume response should be nil")
+	}
+
+	gotCode, wantCode = status.Code(err), codes.PermissionDenied
+	if gotCode != wantCode {
+		t.Fatalf("got code: %d, want: %d", gotCode, wantCode)
 	}
 }

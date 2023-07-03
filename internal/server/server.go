@@ -5,15 +5,35 @@ import (
 
 	api "github.com/srinathLN7/proglog/api/v1"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/peer"
+	"google.golang.org/grpc/status"
+
+	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
+	grpc_auth "github.com/grpc-ecosystem/go-grpc-middleware/auth"
 )
 
+const (
+	objectWildcard = "*"
+	produceAction  = "produce"
+	consumeAction  = "consume"
+)
+
+// CommitLog: interface defined for dependency inversion useful for switching out implmentations
 type CommitLog interface {
 	Append(*api.Record) (uint64, error)
 	Read(uint64) (*api.Record, error)
 }
 
+// AUthorizer: interface to switch out authorization implementation
+type Authorizer interface {
+	Authorize(subject, object, action string) error
+}
+
 type Config struct {
-	CommitLog CommitLog
+	CommitLog  CommitLog
+	Authorizer Authorizer
 }
 
 type grpcServer struct {
@@ -21,7 +41,40 @@ type grpcServer struct {
 	*Config
 }
 
+type subjectContextKey struct {
+}
+
 var _ api.LogServer = (*grpcServer)(nil)
+
+// authenticate: interceptor (aka. middleware) reading the subject out of the client's cert
+// and writes to the RPCs context. With interceptors, you can intercept and modify execution
+// of each RPC call, allowing you to break the request handling into smaller, reusable chunks
+func authenticate(ctx context.Context) (context.Context, error) {
+
+	// retrieve the peer info from context if exists
+	peer, ok := peer.FromContext(ctx)
+	if !ok {
+		return ctx, status.New(codes.Unknown, "couldn't find peer info").Err()
+	}
+
+	// check peer authentication info of the transport layer
+	// if no transport security is used
+	if peer.AuthInfo == nil {
+		return context.WithValue(ctx, subjectContextKey{}, ""), nil
+	}
+
+	// type cast the tlsInfo retrieved to `TLSInfo` struct
+	tlsInfo := peer.AuthInfo.(credentials.TLSInfo)
+	subject := tlsInfo.State.VerifiedChains[0][0].Subject.CommonName
+	ctx = context.WithValue(ctx, subjectContextKey{}, subject)
+	return ctx, nil
+}
+
+// subject: returns the client's certs subject name (`Subject: CN:""`) allowing us to identify a client
+// The value is written to the subjectContextKey by the `authenticate` interceptor (middleware)
+func subject(ctx context.Context) string {
+	return ctx.Value(subjectContextKey{}).(string)
+}
 
 func newgrpcServer(config *Config) (srv *grpcServer, err error) {
 	srv = &grpcServer{
@@ -32,6 +85,17 @@ func newgrpcServer(config *Config) (srv *grpcServer, err error) {
 
 // NewGRPCServer: creates a grpc server and registers the service to that server
 func NewGRPCServer(config *Config, opts ...grpc.ServerOption) (*grpc.Server, error) {
+
+	// append the server options to hook up the `authenticate` interceptor to our grpc server
+	// enabling the server kick-off the authorization process
+	opts = append(opts,
+		grpc.StreamInterceptor(
+			grpc_middleware.ChainStreamServer(
+				grpc_auth.StreamServerInterceptor(authenticate),
+			)),
+		grpc.UnaryInterceptor(grpc_middleware.ChainUnaryServer(
+			grpc_auth.UnaryServerInterceptor(authenticate),
+		)))
 
 	// remember variadic functions which uses slice internally to handle variable number of arguments
 	// pack (... in prefix) and unpack operator (... in suffix)
@@ -46,6 +110,12 @@ func NewGRPCServer(config *Config, opts ...grpc.ServerOption) (*grpc.Server, err
 
 // Produce: takes in a `record` and produce the corresponding offset
 func (s *grpcServer) Produce(ctx context.Context, req *api.ProduceRequest) (*api.ProduceResponse, error) {
+
+	// check if the client is authorized to connect to the server
+	if err := s.Authorizer.Authorize(subject(ctx), objectWildcard, produceAction); err != nil {
+		return nil, err
+	}
+
 	offset, err := s.CommitLog.Append(req.Record)
 	if err != nil {
 		return nil, err
@@ -56,6 +126,11 @@ func (s *grpcServer) Produce(ctx context.Context, req *api.ProduceRequest) (*api
 
 // Consume : takes in an offset and return the corresponding record
 func (s *grpcServer) Consume(ctx context.Context, req *api.ConsumeRequest) (*api.ConsumeResponse, error) {
+
+	// check if the client is authorized to connect to the server
+	if err := s.Authorizer.Authorize(subject(ctx), objectWildcard, produceAction); err != nil {
+		return nil, err
+	}
 	record, err := s.CommitLog.Read(req.Offset)
 	if err != nil {
 		return nil, err

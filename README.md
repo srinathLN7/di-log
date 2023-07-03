@@ -40,7 +40,7 @@ A distributed commit log service built from scratch in golang. The goal of this 
 
 ## Contributing
 
-Contributions to this project are welcome! If you find any issues or have suggestions for improvements, please feel free to open an issue or submit a pull request.
+Contributions to this project are welcome. If you find any issues or have suggestions for improvements, please feel free to open an issue or submit a pull request.
 
 
 ## References
@@ -57,9 +57,7 @@ This project is licensed under the [MIT License](LICENSE).
 
 For questions or further information about this project, please contact:
 
-Email: srinath0393@gmail.com  
+Email: srinath0393@gmail.com 
 LinkedIn: [L. Nandakumar](https://www.linkedin.com/in/lnandakumar/)
 
----
 
-Feel free to customize this `README.md` file based on your project's specific details and requirements.
