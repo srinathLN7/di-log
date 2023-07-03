@@ -57,7 +57,7 @@ This project is licensed under the [MIT License](LICENSE).
 
 For questions or further information about this project, please contact:
 
-Email: srinath0393@gmail.com 
-LinkedIn: [L. Nandakumar](https://www.linkedin.com/in/lnandakumar/)
+- Email: srinath0393@gmail.com 
+- LinkedIn: [L. Nandakumar](https://www.linkedin.com/in/lnandakumar/)
 
 
