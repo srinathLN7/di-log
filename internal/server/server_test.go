@@ -2,8 +2,10 @@ package server
 
 import (
 	"context"
+	"flag"
 	"io/ioutil"
 	"net"
+	"os"
 	"testing"
 
 	api "github.com/srinathLN7/proglog/api/v1"
@@ -11,11 +13,30 @@ import (
 	"github.com/srinathLN7/proglog/internal/config"
 	"github.com/srinathLN7/proglog/internal/log"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/status"
 )
+
+var debug = flag.Bool("debug", false, "enable observability for debugging.")
+
+// TestMain: gives a place for setup that applies to all tests in the file
+func TestMain(m *testing.M) {
+	flag.Parse() // go test -v -debug=true
+	if *debug {
+		logger, err := zap.NewDevelopment()
+		if err != nil {
+			panic(err)
+		}
+
+		// set the development logger as the global logger
+		zap.ReplaceGlobals(logger)
+	}
+
+	os.Exit(m.Run())
+}
 
 // TestServer: defines a list of test cases and then runs a subtest for each case
 func TestServer(t *testing.T) {
@@ -60,12 +81,12 @@ func setupTest(t *testing.T, fn func(*Config)) (
 	// client-side - config our CA as the client's Root CA
 
 	/*
-			Without mutual TLS
+		// without mutual TLS
 		clientTLSConfig, err := config.SetupTLSConfig(config.TLSConfig{
 			CAFile: config.CAFile,
 		})
 
-		with mutual-TLS for client and server authentication
+		// with mutual-TLS for client and server authentication
 		clientTLSConfig, err := config.SetupTLSConfig(config.TLSConfig{
 			CertFile: config.ClientCertFile, // add client cert file
 			KeyFile:  config.ClientKeyFile,  // add client key file
@@ -136,6 +157,7 @@ func setupTest(t *testing.T, fn func(*Config)) (
 	// notice `clog` *log.Log implements CommitLog interface
 	// embed the casbin-based authorization policy in the configuration
 	authorizer := auth.New(config.ACLModelFile, config.ACLPolicyFile)
+
 	cfg = &Config{
 		CommitLog:  clog,
 		Authorizer: authorizer,

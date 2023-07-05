@@ -2,8 +2,12 @@ package server
 
 import (
 	"context"
+	"time"
 
 	api "github.com/srinathLN7/proglog/api/v1"
+	"go.opencensus.io/plugin/ocgrpc"
+	"go.opencensus.io/stats/view"
+	"go.opencensus.io/trace"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
@@ -12,6 +16,11 @@ import (
 
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	grpc_auth "github.com/grpc-ecosystem/go-grpc-middleware/auth"
+	grpc_ctxtags "github.com/grpc-ecosystem/go-grpc-middleware/tags"
+
+	grpc_zap "github.com/grpc-ecosystem/go-grpc-middleware/logging/zap"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 )
 
 const (
@@ -86,16 +95,50 @@ func newgrpcServer(config *Config) (srv *grpcServer, err error) {
 // NewGRPCServer: creates a grpc server and registers the service to that server
 func NewGRPCServer(config *Config, opts ...grpc.ServerOption) (*grpc.Server, error) {
 
-	// append the server options to hook up the `authenticate` interceptor to our grpc server
-	// enabling the server kick-off the authorization process
+	// congigure logging
+	// use uber's zap logging library for structured logs
+	logger := zap.L().Named("server")
+	zapOpts := []grpc_zap.Option{
+		grpc_zap.WithDurationField(
+			func(duration time.Duration) zapcore.Field {
+				return zap.Int64(
+					"grpc.time_ns",
+					duration.Nanoseconds(), // log the duration of each req in nanoseconds
+				)
+			},
+		),
+	}
+
+	// configure traces
+	// trace captures request lifecycles and tracks the request flow in the system
+	// always sample => all req's traced
+	trace.ApplyConfig(trace.Config{DefaultSampler: trace.AlwaysSample()})
+
+	// configure views => specifying what OpenCensus will collect
+	err := view.Register(ocgrpc.DefaultServerViews...)
+	if err != nil {
+		return nil, err
+	}
+
+	// append the server options to hook up the `authenticate` and `zap` interceptors to our grpc server
+	// enabling the server to kick-off the authorization process along with observability (traces, metrics, logs)
+	// tags => traces
+	// zap => logs
+	// stats => metrics - OpenCensus stat handler
 	opts = append(opts,
 		grpc.StreamInterceptor(
 			grpc_middleware.ChainStreamServer(
+				grpc_ctxtags.StreamServerInterceptor(),
+				grpc_zap.StreamServerInterceptor(logger, zapOpts...),
 				grpc_auth.StreamServerInterceptor(authenticate),
 			)),
 		grpc.UnaryInterceptor(grpc_middleware.ChainUnaryServer(
+			grpc_ctxtags.UnaryServerInterceptor(),
+			grpc_zap.UnaryServerInterceptor(logger, zapOpts...),
 			grpc_auth.UnaryServerInterceptor(authenticate),
-		)))
+		)),
+		grpc.StatsHandler(&ocgrpc.ServerHandler{}),
+	)
 
 	// remember variadic functions which uses slice internally to handle variable number of arguments
 	// pack (... in prefix) and unpack operator (... in suffix)
