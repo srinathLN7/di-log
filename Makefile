@@ -1,5 +1,6 @@
 # START: begin
 CONFIG_PATH=${HOME}/.proglog/
+GITHUB_BACKUP_PATH=${HOME}/go/src/github.com/srinathLN7/gitbackup/proglog
 
 .PHONY: init
 init:
@@ -33,7 +34,7 @@ gencert:
 		-cn="nobody" \
 		test/client-csr.json | cfssljson -bare nobody-client
 
-	mv *.pem *.csr ${CONFIG_PATH}
+	mv *.pem *.csr ${CONFIG_PATH}/
 
 # END: begin
 
@@ -59,5 +60,10 @@ compile:
 		--go_opt=paths=source_relative \
 		--go-grpc_opt=paths=source_relative \
 		--proto_path=.
+
+
+.PHONY: gitbackup
+gitbackup:
+	cp -r ./.git  ${GITHUB_BACKUP_PATH}
 
 # END: begin
