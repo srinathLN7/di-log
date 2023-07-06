@@ -7,12 +7,14 @@ import (
 	"net"
 	"os"
 	"testing"
+	"time"
 
 	api "github.com/srinathLN7/proglog/api/v1"
 	"github.com/srinathLN7/proglog/internal/auth"
 	"github.com/srinathLN7/proglog/internal/config"
 	"github.com/srinathLN7/proglog/internal/log"
 	"github.com/stretchr/testify/require"
+	"go.opencensus.io/examples/exporter"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -158,6 +160,29 @@ func setupTest(t *testing.T, fn func(*Config)) (
 	// embed the casbin-based authorization policy in the configuration
 	authorizer := auth.New(config.ACLModelFile, config.ACLPolicyFile)
 
+	// use opencensus pkg for writing metrics and traces to their own files
+	// create these files for each test requests
+	var telemetryExporter *exporter.LogExporter
+	if *debug {
+		metricsLogFile, err := os.CreateTemp("", "metrics-*.log")
+		require.NoError(t, err)
+		t.Logf("metrics log file: %s", metricsLogFile.Name())
+
+		tracesLogFile, err := os.CreateTemp("", "traces-*.log")
+		require.NoError(t, err)
+		t.Logf("traces log file: %s", tracesLogFile.Name())
+
+		telemetryExporter, err = exporter.NewLogExporter(exporter.Options{
+			MetricsLogFile:    metricsLogFile.Name(),
+			TracesLogFile:     tracesLogFile.Name(),
+			ReportingInterval: time.Second,
+		})
+
+		require.NoError(t, err)
+		err = telemetryExporter.Start()
+		require.NoError(t, err)
+	}
+
 	cfg = &Config{
 		CommitLog:  clog,
 		Authorizer: authorizer,
@@ -177,12 +202,18 @@ func setupTest(t *testing.T, fn func(*Config)) (
 	}()
 
 	// teardown => stop server gracefully, close the client connection and listener, and remove the client log
+	// give the telemetry exporter enough time (1.5s) to flush its data to disk
 	return rootClient, nobodyClient, cfg, func() {
 		server.Stop()
 		rootConn.Close()
 		nobodyConn.Close()
 		l.Close()
 		clog.Remove()
+		if telemetryExporter != nil {
+			time.Sleep(1500 * time.Microsecond)
+			telemetryExporter.Stop()
+			telemetryExporter.Close()
+		}
 	}
 }
 
