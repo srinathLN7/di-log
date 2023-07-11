@@ -29,7 +29,7 @@ type Handler interface {
 	Leave(name string) error
 }
 
-// New: Create a new membership with the required configuration and event handler.
+// NewMembership: Create a new membership with the required configuration and event handler.
 // Sets up a new serf instance every time this call is invoked
 func NewMembership(handler Handler, config Config) (*Membership, error) {
 	c := &Membership{
@@ -71,6 +71,7 @@ func (m *Membership) setupSerf() (err error) {
 		return err
 	}
 
+	// spin up an event handler in a seperate go routine
 	go m.eventHandler()
 	if m.StartJoinAddrs != nil {
 		_, err = m.serf.Join(m.StartJoinAddrs, true)
@@ -87,6 +88,8 @@ func (m *Membership) eventHandler() {
 		switch e.EventType() {
 		case serf.EventMemberJoin:
 			for _, member := range e.(serf.MemberEvent).Members {
+
+				// if the calling server is same as the serf instance, then skip the current iteration
 				if m.isLocal(member) {
 					continue
 				}
@@ -95,6 +98,10 @@ func (m *Membership) eventHandler() {
 
 		case serf.EventMemberLeave, serf.EventMemberFailed:
 			for _, member := range e.(serf.MemberEvent).Members {
+
+				// if the discovered serf member (server) is same as the calling server
+				// then break out of the loop. To understand why, look into the `Leave()` method
+				// implementation in the `membership_test.go` file
 				if m.isLocal(member) {
 					return
 				}
