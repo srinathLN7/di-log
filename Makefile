@@ -64,6 +64,6 @@ compile:
 
 .PHONY: gitbackup
 gitbackup:
-	cp -r ./.git  ${GITHUB_BACKUP_PATH}
+	sudo cp -rf ./.git  ${GITHUB_BACKUP_PATH}
 
 # END: begin
