@@ -82,7 +82,9 @@ func (m *Membership) setupSerf() (err error) {
 	return nil
 }
 
-// eventHandler: runs in a loop reading events sent by serf into the events channel
+// eventHandler: runs in a loop reading events sent by serf into the events channel.
+// When a node joins or leaves the cluster, Serf sends an event to all nodes, including the node that joined or left the cluster.
+// when the node we got an event for is the local server, then we make sure the server doesn't act on itself - For example. replicating itself.
 func (m *Membership) eventHandler() {
 	for e := range m.events {
 		switch e.EventType() {
