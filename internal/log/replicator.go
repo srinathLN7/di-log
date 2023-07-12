@@ -161,10 +161,32 @@ func (r *Replicator) Leave(name string) error {
 	}
 
 	//close the associated (remote) server's channel
+	// this signals to the receiver in the `replicate()` goroutine to stop replicating from the server
 	close(r.servers[name])
 
 	//remove the server from the list of servers to replicate i.e. delete the associated key in the `servers` mapping
 	delete(r.servers, name)
+
+	return nil
+}
+
+// Close: closes the replicator to stop the replicator replicating new servers
+// joining in the cluster and stops replicating existing servers
+func (r *Replicator) Close() error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	r.init()
+
+	if r.closed {
+		return nil
+	}
+
+	r.closed = true
+
+	// close the replicator channel
+	// see how this is used to signal in the replication logic above in the `replicate()` method
+	close(r.close)
 
 	return nil
 }
