@@ -10,6 +10,7 @@ import (
 )
 
 // Replicator: Connects to other servers with the grpc client configured with the dial options.
+// Implements the `Handler` interface to `Join` and `Leave` servers to/from the cluster.
 // Calls the `produce` function to save a copy of the messages it consumes from other servers
 // servers: map from server address to a channel
 type Replicator struct {
