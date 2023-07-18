@@ -33,8 +33,8 @@ type Agent struct {
 
 // Config: represents config params for all components of the agent
 type Config struct {
-	ServerTLSConfig *tls.Config // tls config of the agent's server (local)
-	PeerTLSConfig   *tls.Config // tls config of the peer (remote) connected to the agent's server
+	ServerTLSConfig *tls.Config // tls config of the agent's local server presented to the clients
+	PeerTLSConfig   *tls.Config // tls config of the peers that is served b/w servers so they can connect with and replicate eah other
 	DataDir         string
 	BindAddr        string
 	RPCPort         int
