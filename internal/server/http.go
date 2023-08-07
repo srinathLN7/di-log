@@ -35,15 +35,15 @@ type ProduceRequest struct {
 }
 
 type ProduceResponse struct {
-	Offset uint64 `json: "offset"`
+	Offset uint64 `json:"offset"`
 }
 
 type ConsumeRequest struct {
-	Offset uint64 `json: "offset"`
+	Offset uint64 `json:"offset"`
 }
 
 type ConsumeResponse struct {
-	Record Record `json: "record"`
+	Record Record `json:"record"`
 }
 
 func (s *httpServer) handleProduce(w http.ResponseWriter, r *http.Request) {
