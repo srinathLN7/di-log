@@ -530,6 +530,10 @@ func (l *DistributedLog) Join(id, addr string) error {
 		}
 	}
 
+	// Add every server as a voter. Raft also supports adding servers as non-voters.
+	// With non-voter servers if you wanted to replicate state to many servers to serve read only eventually consistent state
+	// Everytime we add more voter servers, you increase the probability that replications and elections will take longer because
+	// the leader has more servers it needs to communicate with to reach a majority.
 	addFuture := l.raft.AddVoter(serverID, serverAddr, 0, 0)
 	if err := addFuture.Error(); err != nil {
 		return err
@@ -538,7 +542,37 @@ func (l *DistributedLog) Join(id, addr string) error {
 	return nil
 }
 
+// Leave: removes the server from the cluster
+// Removing the leader  will trigger a new election
 func (l *DistributedLog) Leave(id string) error {
 	removeFuture := l.raft.RemoveServer(raft.ServerID(id), 0, 0)
 	return removeFuture.Error()
+}
+
+// WaitForLeader: Blocks until the cluster has elected a leader or times out
+func (l *DistributedLog) WaitForLeader(timeout time.Duration) error {
+	timeoutc := time.After(timeout)
+	ticker := time.NewTicker(time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-timeoutc:
+			return fmt.Errorf("timed out")
+		case <-ticker.C:
+			if l := l.raft.Leader(); l != "" {
+				return nil
+			}
+		}
+	}
+}
+
+// Close: Shuts down the Raft instance and closes the local log
+func (l *DistributedLog) Close() error {
+	f := l.raft.Shutdown()
+	if err := f.Error(); err != nil {
+		return err
+	}
+
+	return l.log.Close()
 }
