@@ -448,7 +448,7 @@ func (s *StreamLayer) Dial(
 		return nil, err
 	}
 
-	// identify to mux this is a raft rpc
+	// Identify to mux this is a raft rpc
 	// write the RaftRPC byte to identify the connection type so
 	// we can multiplex Raft on the same port as our Log grpc requests
 	_, err = conn.Write([]byte{byte(RaftRPC)})
