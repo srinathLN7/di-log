@@ -45,7 +45,7 @@ func NewDistributedLog(dataDir string, config Config) (
 	return l, nil
 }
 
-// setupLog: creates the server log where the server will store the user's records
+// setupLog: Creates the server log where the server will store the user's records
 func (l *DistributedLog) setupLog(dataDir string) error {
 	logDir := filepath.Join(dataDir, "log")
 
@@ -60,12 +60,14 @@ func (l *DistributedLog) setupLog(dataDir string) error {
 	return err
 }
 
-// setupRaft: configures and creates the server's Raft instance
+// setupRaft: Configures and creates the server's Raft instance
+// sets up : FSM, Log store, stable store, snapshot store, and transport
 func (l *DistributedLog) setupRaft(dataDir string) error {
 
-	// Start with creating a finite-state machine (FSM)
+	// Start with creating a finite-state machine (FSM) that applies the commands we give Raft
 	fsm := &fsm{log: l.log}
 
+	// Setup a log store where Raft stores the commands
 	logDir := filepath.Join(dataDir, "raft", "log")
 	if err := os.MkdirAll(logDir, 0755); err != nil {
 		return err
@@ -78,6 +80,7 @@ func (l *DistributedLog) setupRaft(dataDir string) error {
 		return err
 	}
 
+	// Setup a stable store where Raft stores cluster's configuration
 	// kvstore to store important Raft's metadata
 	// For eg. server current term or candidate the server voted for
 	// Bolt is an embedded and persisted kv database for Go
@@ -91,8 +94,8 @@ func (l *DistributedLog) setupRaft(dataDir string) error {
 
 	retain := 1
 
-	// setup snapshot store for Raft to reciver and restore
-	// data efficiently
+	// Setup snapshot store for Raft to receive and restore
+	// data efficiently - compact snapshots of its data
 	snapshotStore, err := raft.NewFileSnapshotStore(
 		filepath.Join(dataDir, "raft"),
 		retain,
@@ -106,7 +109,7 @@ func (l *DistributedLog) setupRaft(dataDir string) error {
 	maxPool := 5
 	timeout := 10 * time.Second
 
-	// transpor: wraps a stream layer - a low-level stream abstraction
+	// transport: wraps a stream layer - a low-level stream abstraction - for Raft to connect with server's peers
 	transport := raft.NewNetworkTransport(
 		l.config.Raft.StreamLayer,
 		maxPool,
@@ -136,6 +139,7 @@ func (l *DistributedLog) setupRaft(dataDir string) error {
 		config.CommitTimeout = l.config.Raft.CommitTimeout
 	}
 
+	// Create the Raft instance and bootstrap the cluster
 	l.raft, err = raft.NewRaft(
 		config,
 		fsm,
@@ -149,6 +153,7 @@ func (l *DistributedLog) setupRaft(dataDir string) error {
 		return err
 	}
 
+	// Check if the Raft has any existing state
 	hasState, err := raft.HasExistingState(
 		logStore,
 		stableStore,
@@ -159,6 +164,8 @@ func (l *DistributedLog) setupRaft(dataDir string) error {
 		return err
 	}
 
+	// If `bootstrap` is set to true and no existing state exists
+	// then bootstrap the cluster
 	if l.config.Raft.Bootstrap && !hasState {
 		config := raft.Configuration{
 			Servers: []raft.Server{{
@@ -173,6 +180,8 @@ func (l *DistributedLog) setupRaft(dataDir string) error {
 
 // Append: appends the record to the log
 func (l *DistributedLog) Append(record *api.Record) (uint64, error) {
+
+	// We tell the Raft to apply a cmd (ProduceRequest) telling FSM to append the record to the log
 	res, err := l.apply(
 		AppendRequestType,
 		&api.ProduceRequest{Record: record},
@@ -185,7 +194,7 @@ func (l *DistributedLog) Append(record *api.Record) (uint64, error) {
 	return res.(*api.ProduceResponse).Offset, nil
 }
 
-// apply : wraps Raft's API to apply requests and return their responses
+// apply : Wraps Raft's API to apply requests and return their responses
 func (l *DistributedLog) apply(reqType RequestType, req proto.Message) (
 	interface{},
 	error,
@@ -207,16 +216,18 @@ func (l *DistributedLog) apply(reqType RequestType, req proto.Message) (
 	}
 
 	timeout := 10 * time.Second
+
+	// Apply is used to apply a command to the FSM in a highly consistent manner. This returns a future that can be used to wait on the application.
+	// An optional timeout can be provided to limit the amount of time we wait for the command to be started. This must be run on the leader or it will fail.
+	// raft.Apply(): internally runs the steps described in the Log replication to replicate the record and append the record to the leader's log
 	future := l.raft.Apply(buf.Bytes(), timeout)
 
-	// future.Error returns an error when something goes wrong
-	// with Raft's replication
+	// future.Error returns an error when something goes wrong with Raft's replication
 	if future.Error() != nil {
 		return nil, future.Error()
 	}
 
-	// future.Response returns what the FSM's Apply() method
-	// returned
+	// future.Response returns what the FSM's Apply() method returned
 	res := future.Response()
 	if err, ok := res.(error); ok {
 		return nil, err
