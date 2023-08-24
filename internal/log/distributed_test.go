@@ -94,33 +94,32 @@ func TestMultipleNodes(t *testing.T) {
 			}
 			return true
 		}, 500*time.Millisecond, 50*time.Millisecond)
-
-		// Make the first server leave the cluster and test if the leader
-		// stops replicating the logs to the server
-		err = logs[0].Leave("1")
-		require.NoError(t, err)
-
-		time.Sleep(50 * time.Millisecond)
-
-		off, err = logs[0].Append(&api.Record{
-			Value: []byte("third"),
-		})
-
-		require.NoError(t, err)
-
-		time.Sleep(50 * time.Millisecond)
-
-		for j := 1; j < nodeCount; j++ {
-			record, err := logs[j].Read(off)
-			if j == 1 {
-				require.IsType(t, api.ErrOffsetOutOfRange{}, err)
-				require.Nil(t, record)
-			} else {
-				require.NoError(t, err)
-				require.Equal(t, []byte("third"), record.Value)
-				require.Equal(t, off, record.Offset)
-			}
-		}
 	}
 
+	// Make the first server leave the cluster and test if the leader
+	// stops replicating the logs to the server
+	err := logs[0].Leave("1")
+	require.NoError(t, err)
+
+	time.Sleep(50 * time.Millisecond)
+
+	off, err := logs[0].Append(&api.Record{
+		Value: []byte("third"),
+	})
+
+	require.NoError(t, err)
+
+	time.Sleep(50 * time.Millisecond)
+
+	for j := 1; j < nodeCount; j++ {
+		record, err := logs[j].Read(off)
+		if j == 1 {
+			require.IsType(t, api.ErrOffsetOutOfRange{}, err)
+			require.Nil(t, record)
+		} else {
+			require.NoError(t, err)
+			require.Equal(t, []byte("third"), record.Value)
+			require.Equal(t, off, record.Offset)
+		}
+	}
 }
