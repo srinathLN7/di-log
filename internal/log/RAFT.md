@@ -65,3 +65,41 @@
     - The `Close` method shuts down the Raft instance and closes the local log.
 
 Overall, this code provides the foundation for building a distributed log system that uses the Raft consensus algorithm for replication and consistency. It handles log storage, Raft configuration, joining and leaving the cluster, and various Raft-related operations.
+
+
+### Restore Snapshot
+
+`Restore` is part of a finite state machine (FSM) implementation in a Go application. This code is used in the context of Raft-based distributed systems to restore the state of the finite state machine from a snapshot.
+
+Here's a step-by-step explanation of what this code does:
+
+1. `b := make([]byte, lenWidth)`: It initializes a byte slice `b` with a length of `lenWidth`. The purpose of `b` is to read data from the input reader (`r`) in fixed-sized chunks.
+
+2. `var buf bytes.Buffer`: It creates a buffer (`buf`) from the standard library's `bytes` package. This buffer is used to accumulate data read from the input reader for deserialization.
+
+3. The code enters a loop that iterates indefinitely (`for i := 0; ; i++`). This loop is used to read and process data from the input reader until it encounters an `io.EOF` error, which indicates the end of the snapshot.
+
+4. `_, err := io.ReadFull(r, b)`: It attempts to read a fixed-sized chunk of data (as specified by `lenWidth`) from the input reader `r` into the byte slice `b`. If an error occurs during this reading operation, it checks if the error is an `io.EOF`, indicating the end of the snapshot. If it's not an EOF, it returns the error.
+
+5. `size := int64(enc.Uint64(b))`: It extracts an integer value from the `b` byte slice by interpreting its content as an encoded uint64. This integer value represents the size of the serialized data for a record in the snapshot.
+
+6. `_, err = io.CopyN(&buf, r, size)`: This line reads `size` bytes from the input reader `r` and copies them into the buffer `buf`. This buffer is used to accumulate the serialized data for a record.
+
+7. `record := &api.Record{}`: It creates an empty instance of the `api.Record` protocol buffer message. This message type represents a record of data, and it will be populated with deserialized data shortly.
+
+8. `if err = proto.Unmarshal(buf.Bytes(), record); err != nil`: It deserializes the data accumulated in the `buf` buffer into the `record` instance. This step converts the binary data from the snapshot into a structured `api.Record` object. If any error occurs during deserialization, it returns that error.
+
+9. `if i == 0 { ... }`: This condition checks if this is the first record being processed (i.e., `i` is zero). If it is the first record, it performs the following actions:
+   - It sets the initial offset of the log to match the offset of the first record. This is crucial for ensuring that the log's offset is consistent with the state stored in the snapshot.
+   - It calls the `Reset` method on the log. The purpose of this is to reset the log to the state described by the snapshot. It can involve initializing the log, removing existing entries, or any other necessary actions.
+
+10. `if _, err = f.log.Append(record); err != nil`: It appends the deserialized `record` to the log associated with the finite state machine (`f.log`). If an error occurs during the append operation, it returns that error.
+
+11. `buf.Reset()`: After successfully processing a record, it resets the buffer `buf` to prepare it for the next record. This step ensures that the buffer is empty and ready for accumulating the next record's data.
+
+12. The loop continues to process the next record until it encounters the end of the snapshot.
+
+13. Finally, the function returns `nil`, indicating that the restoration process has completed without errors.
+
+In summary, this code reads and deserializes data from a snapshot stored in an input reader. It interprets the data as records of type `api.Record`, appends these records to a log, and ensures that the log's initial offset is consistent with the first record's offset in the snapshot. This process is crucial for restoring the state of a finite state machine in a distributed system when using the Raft consensus algorithm.
+

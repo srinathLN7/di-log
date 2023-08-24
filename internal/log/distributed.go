@@ -243,8 +243,10 @@ func (l *DistributedLog) Read(offset uint64) (*api.Record, error) {
 	return l.log.Read(offset)
 }
 
-//  Finite State Machine
+// Finite State Machine -  Raft defers running the business logic to the FSM
+// FSM implements three methods - Apply, Snapshot, Restore
 
+// Ensure that the fsm struct implements the raft.FSM interface at compile-time.
 var _ raft.FSM = (*fsm)(nil)
 
 type fsm struct {
@@ -257,8 +259,11 @@ const (
 	AppendRequestType RequestType = 0
 )
 
+// Apply: Raft invokes this method after committing a log entry
 func (l *fsm) Apply(record *raft.Log) interface{} {
 	buf := record.Data
+
+	// Extract the `reqType` from the first byte
 	reqType := RequestType(buf[0])
 	switch reqType {
 	case AppendRequestType:
@@ -268,6 +273,7 @@ func (l *fsm) Apply(record *raft.Log) interface{} {
 	return nil
 }
 
+// applyAppend: de-serialize, append, and then return the record to the local log
 func (l *fsm) applyAppend(b []byte) interface{} {
 	var req api.ProduceRequest
 	err := proto.Unmarshal(b, &req)
@@ -285,12 +291,13 @@ func (l *fsm) applyAppend(b []byte) interface{} {
 
 // Snapshot: returns an FSMSnapshot that represents a point-in-time snapshot of the FSM's state
 // Serves two purposes: Allow Raft to compact its log so it doesn't store logs whose commands Raft has already applied
-// Allow Raft to bootstrap new servers more efficiently than id the leader had to replicate its entire log again and again
+// Allow Raft to bootstrap new servers more efficiently than if the leader had to replicate its entire log again and again
 func (f *fsm) Snapshot() (raft.FSMSnapshot, error) {
 	r := f.log.Reader()
 	return &snapshot{reader: r}, nil
 }
 
+// Ensure `snapshot` struct implements the `FSMSnapshot` interface
 var _ raft.FSMSnapshot = (*snapshot)(nil)
 
 type snapshot struct {
@@ -299,6 +306,7 @@ type snapshot struct {
 
 // Persist: To write its state to some sink  - eg: in-memory, a file, or S3 bucket
 func (s *snapshot) Persist(sink raft.SnapshotSink) error {
+	// We use the file snapshot in here to store the btyes in
 	if _, err := io.Copy(sink, s.reader); err != nil {
 		_ = sink.Cancel()
 		return err
@@ -307,18 +315,19 @@ func (s *snapshot) Persist(sink raft.SnapshotSink) error {
 	return sink.Close()
 }
 
-// Release: Withen it is finished with the snapshot
+// Release: Called when Raft is finished with the snapshot
 func (s *snapshot) Release() {}
 
-// Restore: restores an FSM from a snap shot FSM must discard existing state and scaled up a new one, we'd want to restore its FSM
-// Reads a snapshot of serialized records, deserializes them, and appends them to the log of the fsm object.
-// It ensures that the log's initial offset matches the state of the snapshot by updating the log's configuration
-// based on the first record in the snapshot. This process allows the fsm object to recover its state from a previously saved snapshot.
+// Restore: restores an FSM from a snapshot FSM must discard existing state and must discard existing state to make sure its state will
+// match the leader's replicated state. Reads a snapshot of serialized records, deserializes them, and appends them to the log of the fsm object.
+// It ensures that the log's initial offset matches the state of the snapshot by updating the log's configuration based on the first record in the
+// snapshot. This process allows the fsm object to recover its state from a previously saved snapshot.
 func (f *fsm) Restore(r io.ReadCloser) error {
 	b := make([]byte, lenWidth)
 	var buf bytes.Buffer
 
 	for i := 0; ; i++ {
+
 		// Reads the snapshot data from the reader
 		_, err := io.ReadFull(r, b)
 		if err == io.EOF {
@@ -360,7 +369,7 @@ func (f *fsm) Restore(r io.ReadCloser) error {
 	return nil
 }
 
-// define Raft's log store
+// Define Raft's log store
 
 var _ raft.LogStore = (*logStore)(nil)
 
