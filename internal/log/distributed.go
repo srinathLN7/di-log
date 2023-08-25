@@ -60,8 +60,12 @@ func (l *DistributedLog) setupLog(dataDir string) error {
 	return err
 }
 
-// setupRaft: Configures and creates the server's Raft instance
-// sets up : FSM, Log store, stable store, snapshot store, and transport
+// setupRaft: Configures and creates the server's Raft instance - internally sets up
+// -> FSM,
+// -> Log store,
+// -> stable store,
+// -> snapshot store,
+// -> transport
 func (l *DistributedLog) setupRaft(dataDir string) error {
 
 	// Start with creating a finite-state machine (FSM) that applies the commands we give Raft
@@ -323,12 +327,16 @@ func (s *snapshot) Release() {}
 // It ensures that the log's initial offset matches the state of the snapshot by updating the log's configuration based on the first record in the
 // snapshot. This process allows the fsm object to recover its state from a previously saved snapshot.
 func (f *fsm) Restore(r io.ReadCloser) error {
+
+	// `b` reads data from the input reader `r`
 	b := make([]byte, lenWidth)
+
+	// `buf` is used to accumulate data read from the input reader for deserialization
 	var buf bytes.Buffer
 
 	for i := 0; ; i++ {
 
-		// Reads the snapshot data from the reader
+		// Reads the snapshot data from the reader until `EOF`
 		_, err := io.ReadFull(r, b)
 		if err == io.EOF {
 			break
@@ -344,6 +352,7 @@ func (f *fsm) Restore(r io.ReadCloser) error {
 		}
 
 		// Deserialize the data in `buf` into a protocol buffer message of type `api.Record`
+		//  Converts the binary data from the snapshot into a structured record
 		record := &api.Record{}
 		if err = proto.Unmarshal(buf.Bytes(), record); err != nil {
 			return err
@@ -371,8 +380,11 @@ func (f *fsm) Restore(r io.ReadCloser) error {
 
 // Define Raft's log store
 
+// Ensure `logStore` struct implements the `LogStore` interface
 var _ raft.LogStore = (*logStore)(nil)
 
+// We are using our own log as Raft's log store and hence we need to wrap
+// our log to satisfy the LogStore interface Raft requires
 type logStore struct {
 	*Log
 }
@@ -433,6 +445,9 @@ func (l *logStore) DeleteRange(min, max uint64) error {
 	return l.Truncate(max)
 }
 
+// Define the Raft stream layer
+
+// Ensure the `StreamLayer` struct implements the `StreamLayer` interface
 var _ raft.StreamLayer = (*StreamLayer)(nil)
 
 // Define the stream layer type
@@ -442,7 +457,7 @@ type StreamLayer struct {
 	peerTLSConfig   *tls.Config
 }
 
-// Satify raft.StreamLayer interface
+// NewStreamLayer: Satifies raft.StreamLayer interface
 func NewStreamLayer(
 	ln net.Listener,
 	serverTLSConfig,
@@ -457,7 +472,7 @@ func NewStreamLayer(
 
 const RaftRPC = 1
 
-// Dial: Makes outgoing connections to other servers in the Raft clusters
+// Dial: Makes outgoing connections to other servers in the Raft cluster
 func (s *StreamLayer) Dial(
 	addr raft.ServerAddress,
 	timeout time.Duration,
@@ -468,8 +483,8 @@ func (s *StreamLayer) Dial(
 		return nil, err
 	}
 
-	// Identify to mux this is a raft rpc
-	// write the RaftRPC byte to identify the connection type so
+	// Identify to mux this is a raft rpc. When we connect to a server,
+	// we write the Raft RPC byte to identify the connection type so
 	// we can multiplex Raft on the same port as our Log grpc requests
 	_, err = conn.Write([]byte{byte(RaftRPC)})
 	if err != nil {
@@ -483,9 +498,8 @@ func (s *StreamLayer) Dial(
 	return conn, err
 }
 
-// Accept: mirror of Dial()
-// accepts incoming connection and read the byte that identifies the connection
-// and then create a server-side TLS connection
+// Accept: mirror of Dial() - accepts incoming connection and reads the byte that
+// identifies the connection and create a server-side TLS connection
 func (s *StreamLayer) Accept() (net.Conn, error) {
 	conn, err := s.ln.Accept()
 	if err != nil {
@@ -493,6 +507,8 @@ func (s *StreamLayer) Accept() (net.Conn, error) {
 	}
 
 	b := make([]byte, 1)
+
+	// Read the Raft RPC byte from the connection type
 	_, err = conn.Read(b)
 	if err != nil {
 		return nil, err

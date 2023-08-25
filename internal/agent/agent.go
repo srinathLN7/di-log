@@ -108,6 +108,7 @@ func (a *Agent) setupLogger() error {
 
 // setupMux: Creates a listener on our RPC adddress that'll accept both
 // Raft and grpc connections and then creates the mux with the listener
+// Multiplex (mux) allows yout to serve different services on the same port.
 func (a *Agent) setupMux() error {
 	rpcAddr := fmt.Sprintf(
 		":%d",
@@ -135,10 +136,11 @@ func (a *Agent) setupLog() error {
 			return false
 		}
 
-		return bytes.Compare(b, []byte{byte(log.RaftRPC)}) == 0
+		return bytes.Equal(b, []byte{byte(log.RaftRPC)})
 	})
 
-	// Configure the distributed log's Raft to use our multiplexed listener and then configure and create the distributed log
+	// Configure the distributed log's Raft to use our multiplexed listener
+	// and create the distributed log
 	logConfig := log.Config{}
 	logConfig.Raft.StreamLayer = log.NewStreamLayer(
 		raftLn,
@@ -194,8 +196,8 @@ func (a *Agent) setupServer() error {
 	}
 
 	// We've multiplexed two connection types (Raft and gRPC) and we added a matcher
-	// for the Raft connections, we know all other connections must be gRPC connections
-	// cMux.Any() matches any connections and then gRPC server serves on the multiplexed listener
+	// for the Raft connections (first byte == 1), we know all other connections must be gRPC connections
+	// cmux.Any() matches any connections and then gRPC server serves on the multiplexed listener
 	grpcLn := a.mux.Match(cmux.Any())
 	go func() {
 		if err := a.server.Serve(grpcLn); err != nil {

@@ -137,6 +137,7 @@ func TestAgent(t *testing.T) {
 	// We produced only one record, and yet we see we're able to consume multiple records from the original server
 	// because it's replicated data from another server that replicated its data from the original server
 
+	// UPDATE: After implemrnting RAFT consensus this test should pass
 	consumeResponse, err = leaderClient.Consume(
 		context.Background(),
 		&api.ConsumeRequest{

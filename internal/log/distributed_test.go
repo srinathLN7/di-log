@@ -16,7 +16,6 @@ import (
 )
 
 func TestMultipleNodes(t *testing.T) {
-
 	var logs []*log.DistributedLog
 	nodeCount := 3
 	ports := dynaport.Get(nodeCount)
