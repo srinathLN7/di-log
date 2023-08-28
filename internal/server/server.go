@@ -35,14 +35,15 @@ type CommitLog interface {
 	Read(uint64) (*api.Record, error)
 }
 
-// AUthorizer: interface to switch out authorization implementation
+// Authorizer: interface to switch out authorization implementation
 type Authorizer interface {
 	Authorize(subject, object, action string) error
 }
 
 type Config struct {
-	CommitLog  CommitLog
-	Authorizer Authorizer
+	CommitLog   CommitLog
+	Authorizer  Authorizer
+	GetServerer GetServerer
 }
 
 type grpcServer struct {
@@ -246,4 +247,25 @@ func (s *grpcServer) ConsumeStream(req *api.ConsumeRequest, stream api.Log_Consu
 			req.Offset++
 		}
 	}
+}
+
+// GetServerer: Seperate interface created to get servers.
+// A non-distributed log such as CommitLog doesn't know about server
+type GetServerer interface {
+	GetServers() ([]*api.Server, error)
+}
+
+// GetServers:
+func (s *grpcServer) GetServers(
+	ctx context.Context, req *api.GetServersRequest,
+) (
+	*api.GetServersResponse,
+	error,
+) {
+	servers, err := s.GetServerer.GetServers()
+	if err != nil {
+		return nil, err
+	}
+
+	return &api.GetServersResponse{Servers: servers}, nil
 }

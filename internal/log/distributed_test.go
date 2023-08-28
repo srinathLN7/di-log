@@ -95,12 +95,26 @@ func TestMultipleNodes(t *testing.T) {
 		}, 500*time.Millisecond, 50*time.Millisecond)
 	}
 
+	// Check if `GetServers` endpoint works well
+	servers, err := logs[0].GetServers()
+	require.NoError(t, err)
+	require.Equal(t, 3, len(servers))
+	require.True(t, servers[0].IsLeader)
+	require.False(t, servers[1].IsLeader)
+	require.False(t, servers[2].IsLeader)
+
 	// Make the first server leave the cluster and test if the leader
 	// stops replicating the logs to the server
-	err := logs[0].Leave("1")
+	err = logs[0].Leave("1")
 	require.NoError(t, err)
 
 	time.Sleep(50 * time.Millisecond)
+
+	servers, err = logs[0].GetServers()
+	require.NoError(t, err)
+	require.Equal(t, 2, len(servers))
+	require.True(t, servers[0].IsLeader)
+	require.False(t, servers[1].IsLeader)
 
 	off, err := logs[0].Append(&api.Record{
 		Value: []byte("third"),
