@@ -4,6 +4,7 @@ import (
 	"net"
 	"testing"
 
+	api "github.com/srinathLN7/proglog/api/v1"
 	"github.com/srinathLN7/proglog/internal/config"
 	"github.com/srinathLN7/proglog/internal/loadbalance"
 	"github.com/srinathLN7/proglog/internal/server"
@@ -12,13 +13,17 @@ import (
 	"google.golang.org/grpc/attributes"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/resolver"
+	"google.golang.org/grpc/serviceconfig"
 )
 
-// TestResolver: Try and discover some servers from
+// TestResolver: Sets up a gRPC server and a client connection with TLS security. It then creates a resolver,
+// builds it with the client connection, simulates server discovery, and checks if the resolver correctly updates
+// the client connection state based on the expected server addresses and attributes.
 func TestResolver(t *testing.T) {
 	l, err := net.Listen("tcp", "127.0.0.1:0")
 	require.NoError(t, err)
 
+	// Listening and Setting Up TLS Configuration:
 	tlsConfig, err := config.SetupTLSConfig(config.TLSConfig{
 		CertFile:      config.ServerCertFile,
 		KeyFile:       config.ServerKeyFile,
@@ -30,6 +35,7 @@ func TestResolver(t *testing.T) {
 	require.NoError(t, err)
 	serverCreds := credentials.NewTLS(tlsConfig)
 
+	// Start the gRPC server
 	srv, err := server.NewGRPCServer(&server.Config{
 		GetServerer: &getServers{},
 	}, grpc.Creds(serverCreds))
@@ -37,6 +43,7 @@ func TestResolver(t *testing.T) {
 
 	go srv.Serve(l)
 
+	// Create a client connection
 	conn := &clientConn{}
 	tlsConfig, err = config.SetupTLSConfig(config.TLSConfig{
 		CertFile:      config.RootClientCertFile,
@@ -48,6 +55,8 @@ func TestResolver(t *testing.T) {
 
 	require.NoError(t, err)
 	clientCreds := credentials.NewTLS(tlsConfig)
+
+	// Creating and Building the Resolver
 	opts := resolver.BuildOptions{
 		DialCreds: clientCreds,
 	}
@@ -63,6 +72,7 @@ func TestResolver(t *testing.T) {
 
 	require.NoError(t, err)
 
+	// Defining Expected State:
 	wantState := resolver.State{
 		Addresses: []resolver.Address{{
 			Addr:       "localhost:9001",
@@ -75,7 +85,46 @@ func TestResolver(t *testing.T) {
 
 	require.Equal(t, wantState, conn.state)
 
+	// Simulate a change in the server list to trigger a resolution update
 	conn.state.Addresses = nil
 	r.ResolveNow(resolver.ResolveNowOptions{})
+
+	// If the client connection state in conn still matches the wantState
 	require.Equal(t, wantState, conn.state)
+}
+
+type getServers struct{}
+
+// GetServers: Returns a known server set for the resolver to find
+func (s *getServers) GetServers() ([]*api.Server, error) {
+	return []*api.Server{{
+		Id:       "leader",
+		RpcAddr:  "localhost:9001",
+		IsLeader: true,
+	}, {
+		Id:      "follower",
+		RpcAddr: "localhost:9002",
+	}}, nil
+}
+
+// clientConn: Implements `resolver.ClientConn`.  Keep a reference to the
+// state the resolver updated it with so that we can verify that the resolver
+// updates the client connection with the correct data
+type clientConn struct {
+	resolver.ClientConn
+	state resolver.State
+}
+
+func (c *clientConn) UpdateState(state resolver.State) {
+	c.state = state
+}
+
+func (c *clientConn) ReportError(err error) {}
+
+func (c *clientConn) NewAddress(addrd []resolver.Address) {}
+
+func (c *clientConn) NewServiceConfig(config string) {}
+
+func (c *clientConn) ParseServiceConfig(config string) *serviceconfig.ParseResult {
+	return nil
 }
