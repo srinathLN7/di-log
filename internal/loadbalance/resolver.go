@@ -27,17 +27,22 @@ type Resolver struct {
 
 var _ resolver.Builder = (*Resolver)(nil)
 
-// Build: Receives the data needed to build a resolver that can discover the servers (like the target address)
-// and the client connection the resolver will update with the servers it discovers.
+// Build: Receives the data needed to build a resolver that can discover the servers (like the target address) and the client connection the resolver will update with the servers it discovers.
+// `Build` and `ResolveNow` method works together to initialize and update the resolver, enabling dynamic server discovery and load balancing for gRPC client connections.
+// The `Build` method sets up the resolver, while the `ResolveNow` method discovers and updates the list of available servers when called.
 func (r *Resolver) Build(
 	target resolver.Target,
 	cc resolver.ClientConn,
 	opts resolver.BuildOptions,
 ) (resolver.Resolver, error) {
+
+	// init logger, client connection and dial options
 	r.logger = zap.L().Named("resolver")
 	r.clientConn = cc
 
 	var dialOpts []grpc.DialOption
+
+	// if secure dial credentials are provided
 	if opts.DialCreds != nil {
 		dialOpts = append(
 			dialOpts,
@@ -45,11 +50,15 @@ func (r *Resolver) Build(
 		)
 	}
 
+	// construct a service configuration JSON with a load balancing configuration
+	// to specify the load balancing strategy
 	r.serviceConfig = r.clientConn.ParseServiceConfig(
 		fmt.Sprintf(`{"loadBalancingConfig": [{"%s":{}}]}`, Name),
 	)
 
 	var err error
+
+	// Establish a gRPC client connection to the target endpoint using the specified dial options
 	r.resolverConn, err = grpc.Dial(target.Endpoint, dialOpts...)
 	if err != nil {
 		return nil, err
@@ -79,7 +88,6 @@ var _ resolver.Resolver = (*Resolver)(nil)
 func (r *Resolver) ResolveNow(resolver.ResolveNowOptions) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-
 	client := api.NewLogClient(r.resolverConn)
 
 	// get cluster and then set on cc attributes
@@ -104,12 +112,14 @@ func (r *Resolver) ResolveNow(resolver.ResolveNowOptions) {
 		})
 	}
 
+	// update the client connection state with the discovered server addresses and the service configuration
 	r.clientConn.UpdateState(resolver.State{
 		Addresses:     addrs,
 		ServiceConfig: r.serviceConfig,
 	})
 }
 
+// Close: Closes the resolver
 func (r *Resolver) Close() {
 	if err := r.resolverConn.Close(); err != nil {
 		r.logger.Error(
