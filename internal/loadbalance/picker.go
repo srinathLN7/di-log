@@ -39,8 +39,9 @@ func (p *Picker) Build(buildInfo base.PickerBuildInfo) balancer.Picker {
 			Value("is_leader").(bool)
 		if isLeader {
 			p.leader = sc
+		} else {
+			followers = append(followers, sc)
 		}
-		followers = append(followers, sc)
 	}
 
 	p.followers = followers

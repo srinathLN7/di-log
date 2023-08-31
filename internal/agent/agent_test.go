@@ -10,6 +10,7 @@ import (
 
 	"github.com/srinathLN7/proglog/internal/agent"
 	"github.com/srinathLN7/proglog/internal/config"
+	"github.com/srinathLN7/proglog/internal/loadbalance"
 	"github.com/stretchr/testify/require"
 	"github.com/travisjeffery/go-dynaport"
 	"google.golang.org/grpc"
@@ -90,7 +91,7 @@ func TestAgent(t *testing.T) {
 		}
 	}()
 
-	// give the nodes some time to discover each other
+	// Give the nodes some time to discover each other
 	time.Sleep(3 * time.Second)
 
 	leaderClient := client(t, agents[0], peerTLSConfig)
@@ -104,6 +105,15 @@ func TestAgent(t *testing.T) {
 	)
 
 	require.NoError(t, err)
+
+	// Give the nodes some time for replication leader->follower
+	// This waiting time is necessary brcause prior to load balancing, the leader client
+	// connected to the leader and when we produced, they were immediately available for
+	// consuming with the leader client because it consumed from the leader server. We didn't
+	// have to wait for the leader to replicate the record. Now, each client connects to every server
+	// and produces to the leader and consumes from the followers, so we must wait for the leader to
+	// replicate the record to the followers.
+	time.Sleep(3 * time.Second)
 
 	consumeResponse, err := leaderClient.Consume(
 		context.Background(),
@@ -137,7 +147,7 @@ func TestAgent(t *testing.T) {
 	// We produced only one record, and yet we see we're able to consume multiple records from the original server
 	// because it's replicated data from another server that replicated its data from the original server
 
-	// UPDATE: After implemrnting RAFT consensus this test should pass
+	// UPDATE: After implementing RAFT consensus this test should pass
 	consumeResponse, err = leaderClient.Consume(
 		context.Background(),
 		&api.ConsumeRequest{
@@ -160,7 +170,12 @@ func client(t *testing.T,
 	opts := []grpc.DialOption{grpc.WithTransportCredentials(tlsCreds)}
 	rpcAddr, err := agent.Config.RPCAddr()
 	require.NoError(t, err)
-	conn, err := grpc.Dial(rpcAddr, opts...)
+	// Specify our scheme in the URL so gRPC knows to use our resolver
+	conn, err := grpc.Dial(fmt.Sprintf(
+		"%s:///%s",
+		loadbalance.Name,
+		rpcAddr,
+	), opts...)
 	require.NoError(t, err)
 	client := api.NewLogClient(conn)
 	return client
