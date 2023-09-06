@@ -6,11 +6,10 @@ kind: Service
 metadata:
   name: {{ include "proglog.fullname" . }}
   namespace: {{ .Release.Namespace }}
-  labels:
-    {{- include "proglog.labels" . | nindent 4 }}
+  labels: {{ include "proglog.labels" . | nindent 4 }}
 spec:
-  clusterIP: None #headless service
-  publishNotReadyAddresses: true  
+  clusterIP: None
+  publishNotReadyAddresses: true
   ports:
     - name: rpc
       port: {{ .Values.rpcPort }}
@@ -22,6 +21,5 @@ spec:
     - name: serf-udp
       protocol: "UDP"
       port: {{ .Values.serfPort }}
-      targetPort: {{ .Values.serfPort }}    
-  selector:
-    {{- include "proglog.selectorLabels" . | nindent 4 }}
+      targetPort: {{ .Values.serfPort }}
+  selector: {{ include "proglog.selectorLabels" . | nindent 4 }}
