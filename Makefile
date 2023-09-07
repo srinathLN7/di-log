@@ -70,5 +70,6 @@ TAG ?=0.0.1
 
 build-docker:
 	docker build -t github.com/srinathln7/proglog:$(TAG) .
+    
 
 # END: begin

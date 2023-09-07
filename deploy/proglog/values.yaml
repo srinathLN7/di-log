@@ -3,7 +3,7 @@
 # Declare variables to be passed into your templates.
 
 image:
- repository: localhost:5000/proglog  # Change to the repository where you have the image locally
+ repository: github.com/srinathln7/proglog  # Change to the repository where you have the image locally
  tag: 0.0.1
  pullPolicy: IfNotPresent
 serfPort: 8401
