@@ -120,7 +120,7 @@ func (i *index) Read(in int64) (out uint32, pos uint64, err error) {
 func (i *index) Write(off uint32, pos uint64) error {
 
 	// check if we have space to write the entry
-	if uint64(len(i.mmap)) < i.size+entWidth {
+	if i.IsMaxed() {
 		return io.EOF
 	}
 
@@ -130,6 +130,10 @@ func (i *index) Write(off uint32, pos uint64) error {
 	i.size += uint64(entWidth)
 
 	return nil
+}
+
+func (i *index) IsMaxed() bool {
+	return uint64(len(i.mmap)) < i.size+entWidth
 }
 
 // Name: returns index file path

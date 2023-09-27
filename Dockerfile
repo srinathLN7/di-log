@@ -9,7 +9,7 @@ RUN GRPC_HEALTH_PROBE_VERSION=v0.3.2 && \
     chmod +x /go/bin/grpc_health_probe
 
 #run
-FROM scratch
+FROM golang:1.20-alpine
 COPY --from=build /go/bin/proglog /bin/proglog
 COPY --from=build /go/bin/grpc_health_probe /bin/grpc_health_probe 
 ENTRYPOINT ["/bin/proglog"]

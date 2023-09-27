@@ -19,9 +19,10 @@ import (
 
 // DistributedLog: Consits of Log and Config replicated with Raft
 type DistributedLog struct {
-	config Config
-	log    *Log
-	raft   *raft.Raft
+	config  Config
+	log     *Log
+	raftLog *logStore
+	raft    *raft.Raft
 }
 
 // NewDistributedLog: Builds a new distributed log with the Raft service
@@ -68,6 +69,8 @@ func (l *DistributedLog) setupLog(dataDir string) error {
 // -> transport
 func (l *DistributedLog) setupRaft(dataDir string) error {
 
+	var err error
+
 	// Start with creating a finite-state machine (FSM) that applies the commands we give Raft
 	fsm := &fsm{log: l.log}
 
@@ -79,7 +82,7 @@ func (l *DistributedLog) setupRaft(dataDir string) error {
 
 	logConfig := l.config
 	logConfig.Segment.InitialOffset = 1
-	logStore, err := newLogStore(logDir, logConfig)
+	l.raftLog, err = newLogStore(logDir, logConfig)
 	if err != nil {
 		return err
 	}
@@ -147,7 +150,7 @@ func (l *DistributedLog) setupRaft(dataDir string) error {
 	l.raft, err = raft.NewRaft(
 		config,
 		fsm,
-		logStore,
+		l.raftLog,
 		stableStore,
 		snapshotStore,
 		transport,
@@ -159,7 +162,7 @@ func (l *DistributedLog) setupRaft(dataDir string) error {
 
 	// Check if the Raft has any existing state
 	hasState, err := raft.HasExistingState(
-		logStore,
+		l.raftLog,
 		stableStore,
 		snapshotStore,
 	)
@@ -609,6 +612,13 @@ func (l *DistributedLog) Close() error {
 	if err := f.Error(); err != nil {
 		return err
 	}
+
+	// Close raft logs.
+	if err := l.raftLog.Log.Close(); err != nil {
+		return err
+	}
+
+	// Close user logs.
 
 	return l.log.Close()
 }

@@ -10,7 +10,7 @@ spec:
     matchLabels:
 {{- include "proglog.selectorLabels" . | nindent 6 }}
   serviceName: {{ include "proglog.fullname" . }}
-  replicas: {{ .Values.replicas }}
+  replicas: {{.Values.replicas}}
   template:
     metadata:
       name: {{ include "proglog.fullname" . }}
@@ -48,18 +48,26 @@ spec:
           name: serf
         args:
           - --config-file=/var/run/proglog/config.yaml
-        # probes...
-        readinessProbe:
-          exec:
-            command: ["/bin/grpc_health_probe", "-addr=:{{ .Values.rpcPort }}"]
-          initialDelaySeconds: 10
-        livenessProbe:
-          exec:
-            command: ["/bin/grpc_health_probe", "-addr=:{{ .Values.rpcPort }}"]
-          initialDelaySeconds: 10
         volumeMounts:
         - name: datadir
           mountPath: /var/run/proglog
+        # # probes...
+        readinessProbe:
+          exec:
+            command:
+            - /bin/sh
+            - -c
+            - |-
+              /bin/grpc_health_probe -addr=$HOSTNAME.proglog.{{.Release.Namespace}}.svc.cluster.local:{{.Values.rpcPort}}
+          initialDelaySeconds: 10
+        livenessProbe:
+          exec:
+            command:
+            - /bin/sh
+            - -c
+            - |-
+              /bin/grpc_health_probe -addr=$HOSTNAME.proglog.{{.Release.Namespace}}.svc.cluster.local:{{.Values.rpcPort}}
+          initialDelaySeconds: 10  
   volumeClaimTemplates:
   - metadata:
       name: datadir

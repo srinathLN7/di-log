@@ -138,18 +138,26 @@ func (l *Log) newSegment(off uint64) error {
 
 // Append: appends a record to the log
 func (l *Log) Append(record *api.Record) (uint64, error) {
-	// allow exclusive write access
-	l.mu.Lock()
-	defer l.mu.Unlock()
 
-	off, err := l.activeSegment.Append(record)
+	highestOffset, err := l.HighestOffset()
 	if err != nil {
 		return 0, err
 	}
 
-	// if segment hits the max size, we make a new active segment
+	// allow exclusive write access
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
 	if l.activeSegment.IsMaxed() {
-		err = l.newSegment(off + 1)
+		err = l.newSegment(highestOffset + 1)
+		if err != nil {
+			return 0, err
+		}
+	}
+
+	off, err := l.activeSegment.Append(record)
+	if err != nil {
+		return 0, err
 	}
 
 	return off, nil

@@ -1,11 +1,8 @@
 # Default values for proglog.
-# This is a YAML-formatted file and its purpose is to set good defaults and show what parameters users can set if they must.
-# Declare variables to be passed into your templates.
-
 image:
- repository: github.com/srinathln7/proglog  # Change to the repository where you have the image locally
- tag: 0.0.1
- pullPolicy: IfNotPresent
+  repository: github.com/srinathln7/proglog
+  tag: 0.0.1
+  pullPolicy: IfNotPresent
 serfPort: 8401
 rpcPort: 8400
 replicas: 3
