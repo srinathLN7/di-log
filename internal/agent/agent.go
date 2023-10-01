@@ -120,6 +120,7 @@ func (a *Agent) setupMux() error {
 		a.Config.RPCPort,
 	)
 
+	// rpcAddr := fmt.Sprintf(":%d", a.Config.RPCPort)
 	ln, err := net.Listen("tcp", rpcAddr)
 	if err != nil {
 		return err
